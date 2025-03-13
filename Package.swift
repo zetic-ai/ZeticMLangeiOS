@@ -2,14 +2,15 @@
 import PackageDescription
 
 let package = Package(
-    name: "ZeticMLange",
+    name: "ZeticMLangeiOS",
     platforms: [
         .iOS(.v13)
     ],
     products: [
         .library(
             name: "ZeticMLange",
-            targets: ["ZeticMLange"]),
+            targets: ["ZeticMLange"]
+        ),
     ],
     dependencies: [
     ],
