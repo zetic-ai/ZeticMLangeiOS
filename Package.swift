@@ -9,12 +9,12 @@ let package = Package(
     products: [
         .library(
             name: "ZeticMLange",
-            targets: ["ZeticMLange"]
+            targets: ["ZeticMLangeWrapper"]
         ),
     ],
     targets: [
         .target(
-            name: "ZeticMLange",
+            name: "ZeticMLangeWrapper",
             dependencies: [
                 .target(name: "ZeticMLangeBinary")
             ],
