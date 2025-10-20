@@ -14,11 +14,14 @@ let package = Package(
     ],
     dependencies: [
     ],
+    linkerSettings: [
+        .linkedFramework("Accelerate")
+    ],
     targets: [
         .binaryTarget(
             name: "ZeticMLange",
-            url: "https://github.com/zetic-ai/ZeticMLangeiOS/releases/download/1.4.2/ZeticMLange.xcframework.zip",
-            checksum: "776d2e5d5d1c59ed3fc01e3c9eddf0cbc053bdbb1b69346508d347ee327f3fa1"
+            url: "https://github.com/zetic-ai/ZeticMLangeiOS/releases/download/1.4.3/ZeticMLange.xcframework.zip",
+            checksum: "2d65235393bb3e6b24bb4cd1110da725c3376e53c48c1e42e17191d5fa345aec"
         )
     ]
 )
