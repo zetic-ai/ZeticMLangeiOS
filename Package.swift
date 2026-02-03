@@ -9,7 +9,7 @@ let package = Package(
   products: [
     .library(
       name: "ZeticMLange",
-      targets: ["ZeticMLange"]
+      targets: ["ZeticMLangeWrapper"]
     )
   ],
   targets: [
