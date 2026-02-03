@@ -4,7 +4,7 @@ import PackageDescription
 let package = Package(
   name: "ZeticMLangeiOS",
   platforms: [
-    .iOS(.v13)
+    .iOS("16.0")
   ],
   products: [
     .library(
@@ -17,7 +17,7 @@ let package = Package(
       name: "ZeticMLange",
       url:
         "https://github.com/zetic-ai/ZeticMLangeiOS/releases/download/1.5.0/ZeticMLange.xcframework.zip",
-      checksum: "839c427c0f10059ba633eac2cc8b6c7de258e378fb5b715bc35019225582830b"
+      checksum: "ca85b629e56b36943c4eadfc40951e44ce5e9e4165ec2ddf286a9c8ef225933f"
     )
   ]
 )
