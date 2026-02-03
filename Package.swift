@@ -9,24 +9,15 @@ let package = Package(
   products: [
     .library(
       name: "ZeticMLange",
-      targets: ["ZeticMLangeWrapper"]
+      targets: ["ZeticMLange"]
     )
   ],
   targets: [
-    .target(
-      name: "ZeticMLangeWrapper",
-      dependencies: [
-        .target(name: "ZeticMLange")
-      ],
-      linkerSettings: [
-        .linkedFramework("Accelerate")
-      ]
-    ),
     .binaryTarget(
       name: "ZeticMLange",
       url:
         "https://github.com/zetic-ai/ZeticMLangeiOS/releases/download/1.5.0/ZeticMLange.xcframework.zip",
-      checksum: "bbb4fc45f2bade95723f531823fc1c92e9d3fa29fa9e26dfd775cef9c10ae8b1"
-    ),
+      checksum: "839c427c0f10059ba633eac2cc8b6c7de258e378fb5b715bc35019225582830b"
+    )
   ]
 )
