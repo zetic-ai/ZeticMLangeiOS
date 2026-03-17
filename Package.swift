@@ -16,8 +16,8 @@ let package = Package(
     .binaryTarget(
       name: "ZeticMLange",
       url:
-        "https://github.com/zetic-ai/ZeticMLangeiOS/releases/download/1.5.8/ZeticMLange.xcframework.zip",
-      checksum: "44035f541de5d598566f02f3cc917a8cf2e65f7d05301af57fdba696ebff82b1"
+        "https://github.com/zetic-ai/ZeticMLangeiOS/releases/download/1.5.9/ZeticMLange.xcframework.zip",
+      checksum: "304ee253c6697ea6276f32f84ec7364f2388eebb345a8d4f4e8f2d43cb6fa60b"
     )
   ]
 )
