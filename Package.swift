@@ -17,7 +17,7 @@ let package = Package(
       name: "ZeticMLange",
       url:
         "https://github.com/zetic-ai/ZeticMLangeiOS/releases/download/1.5.9/ZeticMLange.xcframework.zip",
-      checksum: "304ee253c6697ea6276f32f84ec7364f2388eebb345a8d4f4e8f2d43cb6fa60b"
+      checksum: "557e9e2bb80a4cf1f86fefc3ea632c244e1bddd72833c0bfe6f7b2dd7c7bdb12"
     )
   ]
 )
