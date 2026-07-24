@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import re
 import sys
 from dataclasses import dataclass
@@ -17,6 +18,8 @@ from urllib.request import Request, urlopen
 REPOSITORY = "zetic-ai/ZeticMLangeiOS"
 ASSET_NAME = "ZeticMLange.xcframework.zip"
 EVENT_TYPE = "ios-sdk-ready"
+FLUTTER_REPOSITORY = "zetic-ai/mlange_flutter"
+DISPATCH_URL = f"https://api.github.com/repos/{FLUTTER_REPOSITORY}/dispatches"
 LOWER_HEX_40 = re.compile(r"^[0-9a-f]{40}$")
 LOWER_HEX_64 = re.compile(r"^[0-9a-f]{64}$")
 SEMVER = re.compile(
@@ -204,16 +207,116 @@ def _write_payload(path: Path, release: VerifiedRelease) -> None:
     temporary.replace(path)
 
 
+def _load_dispatch_payload(path: Path) -> dict[str, Any]:
+    try:
+        envelope = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise VerificationError(f"cannot read verified payload: {error}") from error
+    envelope = _require_object(envelope, "verified payload")
+    if set(envelope) != {"event_type", "client_payload"}:
+        raise VerificationError("verified payload fields do not match the dispatch schema")
+    if envelope["event_type"] != EVENT_TYPE:
+        raise VerificationError(f"event_type must be {EVENT_TYPE}")
+    payload = _require_object(envelope["client_payload"], "client_payload")
+    expected_fields = {
+        "schema_version",
+        "readiness_key",
+        "ios_version",
+        "artifact_url",
+        "sha256",
+        "manifest_commit",
+        "verification_run_url",
+    }
+    if (
+        set(payload) != expected_fields
+        or type(payload.get("schema_version")) is not int
+        or payload["schema_version"] != 1
+    ):
+        raise VerificationError("client_payload fields do not match schema version 1")
+    string_fields = expected_fields - {"schema_version"}
+    if any(not isinstance(payload.get(field), str) for field in string_fields):
+        raise VerificationError("client_payload string fields are invalid")
+    if SEMVER.fullmatch(payload["ios_version"]) is None:
+        raise VerificationError("ios_version must be a canonical SemVer value")
+    if payload["artifact_url"] != artifact_url(payload["ios_version"]):
+        raise VerificationError("artifact_url does not match ios_version")
+    if LOWER_HEX_64.fullmatch(payload["sha256"]) is None:
+        raise VerificationError("sha256 must be lowercase 64-hex")
+    if LOWER_HEX_40.fullmatch(payload["manifest_commit"]) is None:
+        raise VerificationError("manifest_commit must be lowercase 40-hex")
+    if RUN_URL.fullmatch(payload["verification_run_url"]) is None:
+        raise VerificationError("verification_run_url is not an approved Actions URL")
+    verified = VerifiedRelease(
+        ios_version=payload["ios_version"],
+        artifact_url=payload["artifact_url"],
+        sha256=payload["sha256"],
+        manifest_commit=payload["manifest_commit"],
+        verification_run_url=payload["verification_run_url"],
+    )
+    if payload != verified.client_payload():
+        raise VerificationError("readiness_key does not match the stable release metadata")
+    return envelope
+
+
+def dispatch_payload(
+    payload_path: Path,
+    token: str,
+    opener: Callable[..., Any] = urlopen,
+) -> None:
+    if not token:
+        raise VerificationError("GH_TOKEN is required")
+    envelope = _load_dispatch_payload(payload_path)
+    request = Request(
+        DISPATCH_URL,
+        data=json.dumps(envelope, separators=(",", ":")).encode(),
+        headers={
+            "Accept": "application/vnd.github+json",
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+            "User-Agent": "ZeticMLangeiOS-release-verifier",
+            "X-GitHub-Api-Version": "2022-11-28",
+        },
+        method="POST",
+    )
+    try:
+        with opener(request, timeout=30) as response:
+            if getattr(response, "status", None) != 204:
+                raise VerificationError(
+                    "Flutter dispatch returned HTTP "
+                    f"{getattr(response, 'status', 'unknown')}"
+                )
+    except VerificationError:
+        raise
+    except HTTPError as error:
+        status = error.code
+        error.close()
+        raise VerificationError(f"Flutter dispatch returned HTTP {status}") from error
+    except (OSError, URLError) as error:
+        raise VerificationError(f"Flutter dispatch failed: {error}") from error
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Verify a published public SPM archive before Flutter notification."
+        description="Verify a public SPM release and notify Flutter."
     )
-    parser.add_argument("--event", type=Path, required=True)
-    parser.add_argument("--manifest", type=Path, required=True)
-    parser.add_argument("--manifest-commit", required=True)
-    parser.add_argument("--verification-run-url", required=True)
-    parser.add_argument("--output", type=Path, required=True)
+    commands = parser.add_subparsers(dest="command", required=True)
+    verify = commands.add_parser("verify")
+    verify.add_argument("--event", type=Path, required=True)
+    verify.add_argument("--manifest", type=Path, required=True)
+    verify.add_argument("--manifest-commit", required=True)
+    verify.add_argument("--verification-run-url", required=True)
+    verify.add_argument("--output", type=Path, required=True)
+    dispatch = commands.add_parser("dispatch")
+    dispatch.add_argument("--payload", type=Path, required=True)
     args = parser.parse_args()
+    if args.command == "dispatch":
+        try:
+            dispatch_payload(args.payload, os.environ.get("GH_TOKEN", ""))
+        except VerificationError as error:
+            print(f"Flutter dispatch failed: {error}", file=sys.stderr)
+            return 1
+        print("verified iOS SDK metadata dispatched to Flutter")
+        return 0
     args.output.unlink(missing_ok=True)
     try:
         release = verify_release(
