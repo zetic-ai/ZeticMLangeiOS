@@ -59,10 +59,9 @@ def event(assets=None):
 
 
 class Response:
-    status = 200
-
-    def __init__(self, content):
+    def __init__(self, content, status=200):
         self.content = io.BytesIO(content)
+        self.status = status
 
     def __enter__(self):
         return self
@@ -172,6 +171,82 @@ class PublicSpmReleaseTest(unittest.TestCase):
                             run_url,
                             lambda *_args, **_kwargs: Response(content),
                         )
+
+    def test_dispatch_posts_the_exact_verified_envelope(self):
+        captured = []
+
+        def opener(request, timeout):
+            captured.append((request, timeout))
+            return Response(b"", 204)
+
+        with tempfile.TemporaryDirectory() as directory:
+            payload_path = Path(directory) / "payload.json"
+            envelope = {
+                "event_type": release.EVENT_TYPE,
+                "client_payload": self.verify().client_payload(),
+            }
+            payload_path.write_text(json.dumps(envelope), encoding="utf-8")
+            release.dispatch_payload(payload_path, "installation-token", opener)
+
+        request, timeout = captured[0]
+        self.assertEqual(release.DISPATCH_URL, request.full_url)
+        self.assertEqual("POST", request.method)
+        self.assertEqual(30, timeout)
+        self.assertEqual(envelope, json.loads(request.data))
+        self.assertEqual("Bearer installation-token", request.get_header("Authorization"))
+
+    def test_dispatch_rejects_authentication_failure(self):
+        with tempfile.TemporaryDirectory() as directory:
+            payload_path = Path(directory) / "payload.json"
+            payload_path.write_text(
+                json.dumps({
+                    "event_type": release.EVENT_TYPE,
+                    "client_payload": self.verify().client_payload(),
+                }),
+                encoding="utf-8",
+            )
+            for status in (401, 403):
+                def unauthorized(request, timeout, response_status=status):
+                    raise HTTPError(
+                        request.full_url,
+                        response_status,
+                        "Unauthorized",
+                        {},
+                        io.BytesIO(),
+                    )
+
+                with self.subTest(status=status), self.assertRaisesRegex(
+                    release.VerificationError, f"HTTP {status}"
+                ):
+                    release.dispatch_payload(
+                        payload_path, "installation-token", unauthorized
+                    )
+
+    def test_dispatch_revalidates_payload_before_network_access(self):
+        calls = []
+        cases = [
+            ("readiness_key", "0" * 64, "readiness_key"),
+            ("schema_version", True, "schema version 1"),
+        ]
+        for field, value, error in cases:
+            payload = self.verify().client_payload()
+            payload[field] = value
+            with self.subTest(field=field), tempfile.TemporaryDirectory() as directory:
+                payload_path = Path(directory) / "payload.json"
+                payload_path.write_text(
+                    json.dumps({
+                        "event_type": release.EVENT_TYPE,
+                        "client_payload": payload,
+                    }),
+                    encoding="utf-8",
+                )
+                with self.assertRaisesRegex(release.VerificationError, error):
+                    release.dispatch_payload(
+                        payload_path,
+                        "installation-token",
+                        lambda *_args, **_kwargs: calls.append(True),
+                    )
+        self.assertEqual([], calls)
 
 
 if __name__ == "__main__":

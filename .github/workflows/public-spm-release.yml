@@ -1,0 +1,76 @@
+name: Verify published SPM release and notify Flutter
+
+on:
+  release:
+    types: [published]
+
+run-name: Verify and propagate iOS SDK ${{ github.event.release.tag_name }}
+
+concurrency:
+  group: public-spm-release-${{ github.event.release.tag_name }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  verify-and-notify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout reviewed release automation
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Resolve published manifest commit
+        id: manifest
+        env:
+          EVENT_COMMIT: ${{ github.sha }}
+          TAG_NAME: ${{ github.event.release.tag_name }}
+        run: |
+          RESOLVED_COMMIT=$(git rev-parse --verify "refs/tags/${TAG_NAME}^{commit}")
+          if [[ ! "${EVENT_COMMIT}" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "ERROR: release event commit is not a full commit ID." >&2
+            exit 1
+          fi
+          if [[ "${RESOLVED_COMMIT}" != "${EVENT_COMMIT}" ]]; then
+            echo "ERROR: published tag no longer resolves to the event commit." >&2
+            exit 1
+          fi
+          if ! git merge-base --is-ancestor "${EVENT_COMMIT}" HEAD; then
+            echo "ERROR: published tag commit is not on public main." >&2
+            exit 1
+          fi
+          mkdir -p build
+          git show "${EVENT_COMMIT}:Package.swift" > build/Package.swift
+          echo "manifest_commit=${EVENT_COMMIT}" >> "${GITHUB_OUTPUT}"
+
+      - name: Verify public manifest and archive
+        env:
+          MANIFEST_COMMIT: ${{ steps.manifest.outputs.manifest_commit }}
+          VERIFICATION_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          python3 scripts/public_spm_release.py verify \
+            --event "${GITHUB_EVENT_PATH}" \
+            --manifest build/Package.swift \
+            --manifest-commit "${MANIFEST_COMMIT}" \
+            --verification-run-url "${VERIFICATION_RUN_URL}" \
+            --output build/flutter-ios-release.json
+
+      - name: Create scoped Flutter token
+        uses: actions/create-github-app-token@v2
+        id: sdk-release-token
+        with:
+          app-id: ${{ vars.SDK_RELEASE_APP_ID }}
+          private-key: ${{ secrets.SDK_RELEASE_APP_PRIVATE_KEY }}
+          owner: zetic-ai
+          repositories: mlange_flutter
+          permission-contents: write
+
+      - name: Dispatch verified metadata to Flutter
+        env:
+          GH_TOKEN: ${{ steps.sdk-release-token.outputs.token }}
+        run: python3 scripts/public_spm_release.py dispatch --payload build/flutter-ios-release.json
