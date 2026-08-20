@@ -18,8 +18,8 @@ from urllib.request import Request, urlopen
 REPOSITORY = "zetic-ai/ZeticMLangeiOS"
 ASSET_NAME = "ZeticMLange.xcframework.zip"
 EVENT_TYPE = "ios-sdk-ready"
-FLUTTER_REPOSITORY = "zetic-ai/mlange_flutter"
-DISPATCH_URL = f"https://api.github.com/repos/{FLUTTER_REPOSITORY}/dispatches"
+MLANGE_SDK_REPOSITORY = "zetic-ai/mlange_sdk"
+DISPATCH_URL = f"https://api.github.com/repos/{MLANGE_SDK_REPOSITORY}/dispatches"
 LOWER_HEX_40 = re.compile(r"^[0-9a-f]{40}$")
 LOWER_HEX_64 = re.compile(r"^[0-9a-f]{64}$")
 SEMVER = re.compile(
@@ -282,7 +282,7 @@ def dispatch_payload(
         with opener(request, timeout=30) as response:
             if getattr(response, "status", None) != 204:
                 raise VerificationError(
-                    "Flutter dispatch returned HTTP "
+                    "mlange_sdk dispatch returned HTTP "
                     f"{getattr(response, 'status', 'unknown')}"
                 )
     except VerificationError:
@@ -290,14 +290,14 @@ def dispatch_payload(
     except HTTPError as error:
         status = error.code
         error.close()
-        raise VerificationError(f"Flutter dispatch returned HTTP {status}") from error
+        raise VerificationError(f"mlange_sdk dispatch returned HTTP {status}") from error
     except (OSError, URLError) as error:
-        raise VerificationError(f"Flutter dispatch failed: {error}") from error
+        raise VerificationError(f"mlange_sdk dispatch failed: {error}") from error
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Verify a public SPM release and notify Flutter."
+        description="Verify a public SPM release and notify mlange_sdk."
     )
     commands = parser.add_subparsers(dest="command", required=True)
     verify = commands.add_parser("verify")
@@ -313,9 +313,9 @@ def main() -> int:
         try:
             dispatch_payload(args.payload, os.environ.get("GH_TOKEN", ""))
         except VerificationError as error:
-            print(f"Flutter dispatch failed: {error}", file=sys.stderr)
+            print(f"mlange_sdk dispatch failed: {error}", file=sys.stderr)
             return 1
-        print("verified iOS SDK metadata dispatched to Flutter")
+        print("verified iOS SDK metadata dispatched to mlange_sdk")
         return 0
     args.output.unlink(missing_ok=True)
     try:

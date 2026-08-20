@@ -1,4 +1,4 @@
-name: Verify published SPM release and notify Flutter
+name: Verify published SPM release and notify mlange_sdk
 
 on:
   release:
@@ -60,17 +60,17 @@ jobs:
             --verification-run-url "${VERIFICATION_RUN_URL}" \
             --output build/flutter-ios-release.json
 
-      - name: Create scoped Flutter token
+      - name: Create scoped mlange_sdk token
         uses: actions/create-github-app-token@v2
         id: sdk-release-token
         with:
           app-id: ${{ vars.SDK_RELEASE_APP_ID }}
           private-key: ${{ secrets.SDK_RELEASE_APP_PRIVATE_KEY }}
           owner: zetic-ai
-          repositories: mlange_flutter
+          repositories: mlange_sdk
           permission-contents: write
 
-      - name: Dispatch verified metadata to Flutter
+      - name: Dispatch verified metadata to mlange_sdk
         env:
           GH_TOKEN: ${{ steps.sdk-release-token.outputs.token }}
         run: python3 scripts/public_spm_release.py dispatch --payload build/flutter-ios-release.json
