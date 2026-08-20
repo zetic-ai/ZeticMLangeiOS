@@ -12,7 +12,7 @@ class ReleaseWorkflowTest(unittest.TestCase):
         self.assertIn("permissions:\n  contents: read", content)
         self.assertIn("ref: main", content)
         self.assertIn("persist-credentials: false", content)
-        self.assertIn("repositories: mlange_flutter", content)
+        self.assertIn("repositories: mlange_sdk", content)
         self.assertIn("permission-contents: write", content)
         self.assertNotIn("pull-requests:", content)
         self.assertNotIn("permission-pull-requests:", content)
@@ -20,8 +20,8 @@ class ReleaseWorkflowTest(unittest.TestCase):
     def test_token_is_created_only_after_archive_verification(self):
         content = WORKFLOW.read_text(encoding="utf-8")
         verify = content.index("name: Verify public manifest and archive")
-        token = content.index("name: Create scoped Flutter token")
-        dispatch = content.index("name: Dispatch verified metadata to Flutter")
+        token = content.index("name: Create scoped mlange_sdk token")
+        dispatch = content.index("name: Dispatch verified metadata to mlange_sdk")
         self.assertLess(verify, token)
         self.assertLess(token, dispatch)
 

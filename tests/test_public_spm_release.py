@@ -74,6 +74,13 @@ class Response:
 
 
 class PublicSpmReleaseTest(unittest.TestCase):
+    def test_dispatch_targets_mlange_sdk(self):
+        self.assertEqual("zetic-ai/mlange_sdk", release.MLANGE_SDK_REPOSITORY)
+        self.assertEqual(
+            "https://api.github.com/repos/zetic-ai/mlange_sdk/dispatches",
+            release.DISPATCH_URL,
+        )
+
     def verify(self, *, event_value=None, manifest_value=None, content=None, opener=None):
         content = archive_bytes() if content is None else content
         checksum = hashlib.sha256(content).hexdigest()
